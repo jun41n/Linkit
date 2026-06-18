@@ -33,7 +33,7 @@ sudo systemctl restart linkit
 
 ## 새 버전 반영
 
-로컬에서 수정 후 GitHub에 올리고, Oracle 서버의 `/opt/linkit`을 최신 코드로 바꾼 다음 다시 시작합니다.
+로컬에서 수정 후 GitHub에 올리고, 로컬에서 `pnpm run export:web`으로 웹 파일을 만든 뒤 Oracle 서버의 `/opt/linkit/dist-web`에 올립니다. 그 다음 다시 시작합니다.
 
 ```bash
 sudo systemctl restart linkit
