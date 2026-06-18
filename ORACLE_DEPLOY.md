@@ -31,4 +31,12 @@ curl -I http://127.0.0.1:8031/
 sudo systemctl restart linkit
 ```
 
+## 새 버전 반영
+
+로컬에서 수정 후 GitHub에 올리고, Oracle 서버의 `/opt/linkit`을 최신 코드로 바꾼 다음 다시 시작합니다.
+
+```bash
+sudo systemctl restart linkit
+```
+
 Oracle Cloud 보안 목록과 서버 방화벽에는 TCP `8031`이 열려 있어야 합니다.
