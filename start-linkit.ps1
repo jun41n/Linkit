@@ -16,7 +16,7 @@ function Test-LinkItPort {
 Write-Host "진짜 링킷 주소: $Url"
 
 if (-not (Test-LinkItPort -PortNumber $Port)) {
-    Write-Host "앱을 켭니다..."
+    Write-Host "진짜 링킷을 여는 중입니다..."
     $pnpm = Get-Command "pnpm.cmd" -ErrorAction Stop
     Start-Process `
         -FilePath $pnpm.Source `
