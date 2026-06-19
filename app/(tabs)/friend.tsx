@@ -55,7 +55,7 @@ const MAX_CHARACTERS = 5;
 
 const defaultProfile: FriendProfile = {
   myName: "june",
-  friendName: "하린",
+  friendName: "하림",
   gender: "female",
   mbti: "ENFP",
   tone: "warm",
@@ -124,7 +124,7 @@ function genderPersona(profile: FriendProfile) {
     };
   }
   return {
-    defaultName: "하린",
+    defaultName: "하림",
     role: "여자친구",
     charm: "부드러운 표현, 섬세한 공감, 설레는 애정 표현",
     awkward: "제가 조심스럽게 들어보고 마음을 맞춰볼게요.",
@@ -791,7 +791,7 @@ export default function MyScreen() {
     if (characters.length >= MAX_CHARACTERS) return;
     setDraftProfile({
       ...defaultProfile,
-      friendName: characters.length === 0 ? "하린" : "",
+      friendName: characters.length === 0 ? "하림" : "",
       gender: "female",
     });
     setEditingCharacterId(null);
@@ -897,7 +897,7 @@ export default function MyScreen() {
             value={draftProfile.friendName}
             onChangeText={(friendName) => setDraftProfile((prev) => ({ ...prev, friendName }))}
             style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card }]}
-            placeholder={draftProfile.gender === "female" ? "예: 하린" : "예: 도윤"}
+            placeholder={draftProfile.gender === "female" ? "예: 하림" : "예: 도윤"}
             placeholderTextColor={colors.mutedForeground}
           />
 
