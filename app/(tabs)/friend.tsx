@@ -278,6 +278,61 @@ function mbtiLine(mbti: string, stage: RelationshipStage) {
   return `${persona[stage]} (${persona.focus})`;
 }
 
+function buildPersona(profile: FriendProfile) {
+  const gender = genderPersona(profile);
+  const tone = toneOptions.find((item) => item.key === profile.tone) ?? toneOptions[0];
+  const mbti = mbtiPersona[profile.mbti.toUpperCase()] ?? mbtiPersona.ENFP;
+
+  const tonePersona: Record<FriendTone, { vibe: string; speech: string; pace: string; affection: string }> = {
+    warm: {
+      vibe: "포근하고 믿을 수 있는 사람",
+      speech: "상대 감정을 먼저 받아주고 부드럽게 되묻는 말투",
+      pace: "급하게 몰아붙이지 않고 천천히 친밀도를 쌓음",
+      affection: "작은 변화도 알아차리고 챙겨주는 애정",
+    },
+    playful: {
+      vibe: "밝고 장난기 있는 분위기 메이커",
+      speech: "짧은 리액션과 농담으로 대화를 가볍게 열어주는 말투",
+      pace: "어색함을 빨리 풀고 티키타카를 만들려 함",
+      affection: "웃겨주고 놀리면서 은근히 마음을 표현",
+    },
+    calm: {
+      vibe: "조용하지만 오래 곁에 남는 감성파",
+      speech: "말 사이의 감정을 읽고 차분하게 정리해주는 말투",
+      pace: "천천히 깊어지는 관계를 선호",
+      affection: "과한 표현보다 안정감과 경청으로 다가감",
+    },
+    direct: {
+      vibe: "솔직하고 끌림을 숨기지 않는 직진형",
+      speech: "애매하게 돌려 말하지 않고 분명하게 표현하는 말투",
+      pace: "마음이 생기면 빠르게 가까워지려 함",
+      affection: "확실한 관심과 플러팅으로 설렘을 만듦",
+    },
+    tsundere: {
+      vibe: "겉은 툴툴대지만 속은 잘 챙기는 타입",
+      speech: "괜히 아닌 척하면서도 핵심은 놓치지 않는 말투",
+      pace: "처음엔 방어적이지만 편해질수록 애정이 드러남",
+      affection: "투덜대는 말 안에 걱정과 관심을 숨김",
+    },
+    romantic: {
+      vibe: "부드럽고 설레는 분위기를 만드는 로맨티스트",
+      speech: "감정의 온도를 예쁘게 표현하고 여운을 남기는 말투",
+      pace: "감정선을 천천히 쌓아 특별한 관계감을 만듦",
+      affection: "다정한 표현과 작은 고백으로 가까워짐",
+    },
+  };
+
+  const personaTone = tonePersona[profile.tone];
+  return {
+    title: `${profile.mbti.toUpperCase()} ${tone.label} ${gender.role}`,
+    summary: `${personaTone.vibe}. ${mbti.focus}을 바탕으로 ${gender.charm}을 보여줘요.`,
+    speech: personaTone.speech,
+    pace: personaTone.pace,
+    affection: personaTone.affection,
+    core: `${mbti.focus} · ${tone.desc}`,
+  };
+}
+
 function hasAny(text: string, words: string[]) {
   return words.some((word) => text.includes(word));
 }
@@ -456,7 +511,8 @@ function makeGreeting(profile: FriendProfile) {
   const friendName = profile.friendName || persona.defaultName;
   const tone = toneLine(profile.tone, "awkward");
   const mbti = mbtiLine(profile.mbti, "awkward");
-  return `안녕하세요, 저는 ${friendName}이에요. 처음엔 조금 어색해도 괜찮아요. ${persona.awkward} ${tone} ${mbti}`;
+  const character = buildPersona(profile);
+  return `안녕하세요, 저는 ${friendName}이에요. 저는 ${character.title} 느낌의 사람이에요. ${character.summary} 처음엔 조금 어색해도 괜찮아요. ${persona.awkward} ${tone} ${mbti}`;
 }
 
 function makeReply(profile: FriendProfile, text: string, intimacy: number) {
@@ -467,6 +523,7 @@ function makeReply(profile: FriendProfile, text: string, intimacy: number) {
   const myName = profile.myName || (stage === "awkward" ? "당신" : "너");
   const tone = toneLine(profile.tone, stage);
   const mbti = mbtiLine(profile.mbti, stage);
+  const character = buildPersona(profile);
 
   if (isExplicitOrSexual(text)) {
     return boundaryReply(profile, stage);
@@ -487,7 +544,7 @@ function makeReply(profile: FriendProfile, text: string, intimacy: number) {
     if (hasAny(lower, ["좋아", "기뻐", "성공", "설레", "고마"])) {
       return `그거 정말 잘됐어요. ${name}도 같이 기뻐해도 될까요? ${tone} ${mbti}`;
     }
-    return `${myName}님 얘기 조금 더 듣고 싶어요. 아직은 천천히 알아가는 사이니까, ${tone} ${mbti}`;
+    return `${myName}님 얘기 조금 더 듣고 싶어요. 저는 ${character.speech}라서 말 사이의 분위기도 같이 보고 싶거든요. 아직은 천천히 알아가는 사이니까, ${tone} ${mbti}`;
   }
 
   if (stage === "close") {
@@ -500,7 +557,7 @@ function makeReply(profile: FriendProfile, text: string, intimacy: number) {
     if (hasAny(lower, ["보고", "그리워", "좋아", "설레"])) {
       return `나도 그런 말 들으면 괜히 마음이 움직여. 우리 꽤 가까워졌나 봐. ${persona.close} ${mbti}`;
     }
-    return `${myName}, 그 말 좋다. ${tone} ${mbti} ${persona.charm} 이런 느낌으로 너한테 더 맞춰갈게.`;
+    return `${myName}, 그 말 좋다. 나는 ${character.core} 쪽이라 ${character.pace}. ${tone} ${mbti} ${persona.charm} 이런 느낌으로 너한테 더 맞춰갈게.`;
   }
 
   if (hasAny(lower, ["경험", "남자", "여자", "연애", "전남친", "전여친"])) {
@@ -512,7 +569,7 @@ function makeReply(profile: FriendProfile, text: string, intimacy: number) {
   if (hasAny(lower, ["보고", "그리워", "좋아", "사랑", "설레"])) {
     return `나도 그래. 이제는 그냥 친구처럼 말하기엔 마음이 너무 가까워졌어. 오늘도 네가 보고 싶었어. ${persona.lover}`;
   }
-  return `${myName}, 나 지금 네 얘기 듣는 거 좋아. ${tone} ${mbti} ${persona.lover}`;
+  return `${myName}, 나 지금 네 얘기 듣는 거 좋아. 나는 ${character.affection} 쪽으로 마음을 표현하는 편이야. ${tone} ${mbti} ${persona.lover}`;
 }
 
 function normalizeProfile(profile: FriendProfile): FriendProfile {
@@ -758,6 +815,17 @@ export default function MyScreen() {
             })}
           </View>
 
+          <View style={[styles.personaPreview, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.personaEyebrow, { color: colors.primary }]}>캐릭터 페르소나</Text>
+            <Text style={[styles.personaTitle, { color: colors.foreground }]}>{buildPersona(normalizeProfile(draftProfile)).title}</Text>
+            <Text style={[styles.personaBody, { color: colors.foreground }]}>{buildPersona(normalizeProfile(draftProfile)).summary}</Text>
+            <View style={styles.personaRows}>
+              <Text style={[styles.personaRow, { color: colors.mutedForeground }]}>말투: {buildPersona(normalizeProfile(draftProfile)).speech}</Text>
+              <Text style={[styles.personaRow, { color: colors.mutedForeground }]}>관계 속도: {buildPersona(normalizeProfile(draftProfile)).pace}</Text>
+              <Text style={[styles.personaRow, { color: colors.mutedForeground }]}>애정 표현: {buildPersona(normalizeProfile(draftProfile)).affection}</Text>
+            </View>
+          </View>
+
           <Pressable onPress={saveCharacter} style={[styles.saveButton, { backgroundColor: colors.foreground }]}>
             <Text style={[styles.saveText, { color: colors.background }]}>
               {formMode === "new" ? "이 캐릭터로 시작하기" : "설정 저장하기"}
@@ -796,6 +864,9 @@ export default function MyScreen() {
                   <Text style={[styles.characterName, { color: colors.foreground }]}>{character.profile.friendName}</Text>
                   <Text style={[styles.characterMeta, { color: colors.mutedForeground }]}>
                     {genderPersona(character.profile).role} · {tone} · {character.profile.mbti}
+                  </Text>
+                  <Text style={[styles.characterPersona, { color: colors.mutedForeground }]} numberOfLines={2}>
+                    {buildPersona(character.profile).summary}
                   </Text>
                   <Text style={[styles.characterMeta, { color: colors.mutedForeground }]}>{stageLabel(character.intimacy)}</Text>
                 </View>
@@ -849,6 +920,9 @@ export default function MyScreen() {
             <Text style={[styles.title, { color: colors.foreground }]}>{profile.friendName}</Text>
             <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
               {genderPersona(profile).role} · {activeTone.label} · {profile.mbti} · {stageLabel(activeCharacter.intimacy)}
+            </Text>
+            <Text style={[styles.personaSubtitle, { color: colors.mutedForeground }]} numberOfLines={2}>
+              {buildPersona(profile).summary}
             </Text>
           </View>
           <GlassSurface variant="pill" tone="warm" style={styles.editWrap}>
@@ -938,6 +1012,7 @@ const styles = StyleSheet.create({
   eyebrow: { fontFamily: "NotoSansKR_700Bold", fontSize: 13, marginBottom: 2 },
   title: { fontFamily: "NotoSansKR_700Bold", fontSize: 34 },
   subtitle: { fontFamily: "NotoSansKR_400Regular", fontSize: 14, marginTop: 2 },
+  personaSubtitle: { fontFamily: "NotoSansKR_400Regular", fontSize: 12, lineHeight: 18, marginTop: 6 },
   editWrap: { alignSelf: "center" },
   editButton: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 9 },
   editText: { fontFamily: "NotoSansKR_700Bold", fontSize: 14 },
@@ -965,6 +1040,18 @@ const styles = StyleSheet.create({
   mbtiGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   mbtiChip: { width: "23%", minWidth: 68, borderWidth: 1, borderRadius: 14, paddingVertical: 11, alignItems: "center" },
   mbtiText: { fontFamily: "NotoSansKR_700Bold", fontSize: 15 },
+  personaPreview: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 16,
+    gap: 6,
+  },
+  personaEyebrow: { fontFamily: "NotoSansKR_700Bold", fontSize: 12 },
+  personaTitle: { fontFamily: "NotoSansKR_700Bold", fontSize: 17 },
+  personaBody: { fontFamily: "NotoSansKR_500Medium", fontSize: 13, lineHeight: 20 },
+  personaRows: { gap: 3, marginTop: 4 },
+  personaRow: { fontFamily: "NotoSansKR_400Regular", fontSize: 12, lineHeight: 18 },
   saveButton: { marginTop: 18, borderRadius: 16, paddingVertical: 15, alignItems: "center" },
   saveText: { fontFamily: "NotoSansKR_700Bold", fontSize: 16 },
   secondaryButton: { alignItems: "center", paddingVertical: 14 },
@@ -984,6 +1071,7 @@ const styles = StyleSheet.create({
   characterInfo: { flex: 1 },
   characterName: { fontFamily: "NotoSansKR_700Bold", fontSize: 18 },
   characterMeta: { fontFamily: "NotoSansKR_400Regular", fontSize: 12, marginTop: 2 },
+  characterPersona: { fontFamily: "NotoSansKR_400Regular", fontSize: 11, lineHeight: 16, marginTop: 4 },
   smallIconButton: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   newCharacterButton: {
     borderWidth: 1,
