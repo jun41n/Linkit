@@ -898,9 +898,16 @@ export default function MyScreen() {
             placeholder={`${profile.friendName}에게 메시지 보내기`}
             placeholderTextColor={colors.mutedForeground}
             multiline
+            blurOnSubmit={false}
+            onKeyPress={(event: any) => {
+              if (Platform.OS !== "web") return;
+              if (event.nativeEvent?.key !== "Enter" || event.nativeEvent?.shiftKey) return;
+              event.preventDefault?.();
+              sendMessage();
+            }}
           />
           <Pressable onPress={sendMessage} style={[styles.sendButton, { backgroundColor: colors.primary }]}>
-            <Ionicons name="send" size={19} color={colors.primaryForeground} />
+            <Ionicons name="send" size={19} color={colors.primaryForeground} style={styles.sendIcon} />
           </Pressable>
         </View>
       </>
@@ -1012,7 +1019,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: Platform.OS === "web" ? 96 : 92,
     flexDirection: "row",
-    alignItems: "flex-end",
+    alignItems: "center",
     gap: 8,
   },
   messageInput: {
@@ -1027,10 +1034,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
   },
+  sendIcon: { transform: [{ translateX: 1 }] },
 });
