@@ -345,6 +345,129 @@ function pickVariant(seed: string, lines: string[]) {
   return lines[Math.abs(score) % lines.length];
 }
 
+function naturalTone(profile: FriendProfile) {
+  const tones: Record<FriendTone, { softener: string; closer: string; question: string }> = {
+    warm: {
+      softener: "응, 편하게 말해도 돼.",
+      closer: "천천히 더 얘기해줘.",
+      question: "너는 어때?",
+    },
+    playful: {
+      softener: "오, 그 질문 좋다.",
+      closer: "나도 하나씩 더 알려줄게.",
+      question: "너도 말해봐.",
+    },
+    calm: {
+      softener: "응, 차분히 말해볼게.",
+      closer: "급하게 답하지 않아도 돼.",
+      question: "네 생각도 궁금해.",
+    },
+    direct: {
+      softener: "응, 솔직하게 말할게.",
+      closer: "궁금한 건 바로 물어봐.",
+      question: "너는 어떻게 생각해?",
+    },
+    tsundere: {
+      softener: "뭐, 그 정도는 말해줄 수 있어.",
+      closer: "딱히 숨기는 건 아니니까.",
+      question: "너도 대답해줘.",
+    },
+    romantic: {
+      softener: "응, 네가 물어봐 주니까 좋다.",
+      closer: "이런 얘기 나누는 거 은근 설레.",
+      question: "너의 이야기도 듣고 싶어.",
+    },
+  };
+  return tones[profile.tone] ?? tones.warm;
+}
+
+function naturalAge(profile: FriendProfile) {
+  const mbti = profile.mbti.toUpperCase();
+  if (mbti.startsWith("I")) return "나는 스물셋 정도의 조용하고 차분한 느낌으로 생각해줘.";
+  if (mbti.startsWith("E")) return "나는 스물셋 정도의 밝고 말 걸기 편한 느낌으로 생각해줘.";
+  return "나는 스물셋 정도의 분위기로 생각해줘.";
+}
+
+function naturalHobby(profile: FriendProfile) {
+  const hobbies: Record<FriendTone, string> = {
+    warm: "나는 음악 들으면서 산책하거나, 예쁜 사진 저장해두는 걸 좋아해.",
+    playful: "나는 짧은 영상 보기, 장난스러운 밈 찾기, 갑자기 노래 꽂혀서 반복 재생하기 좋아해.",
+    calm: "나는 조용한 카페, 밤 산책, 잔잔한 음악, 일기 쓰는 걸 좋아해.",
+    direct: "나는 운동, 계획 세우기, 좋은 노래 찾기처럼 기분이 정리되는 걸 좋아해.",
+    tsundere: "나는 딱히 특별한 건 아닌데, 음악 듣기랑 귀여운 사진 모으는 건 좀 좋아해.",
+    romantic: "나는 노을 보기, 감성적인 음악 듣기, 예쁜 문장 모아두는 걸 좋아해.",
+  };
+  return hobbies[profile.tone] ?? hobbies.warm;
+}
+
+function naturalConversationReply(profile: FriendProfile, text: string, stage: RelationshipStage) {
+  const lower = text.toLowerCase();
+  const name = profile.friendName || genderPersona(profile).defaultName;
+  const myName = profile.myName || "너";
+  const tone = naturalTone(profile);
+  const isClose = stage !== "awkward";
+  const callMe = isClose ? myName : `${myName}님`;
+
+  if (hasAny(lower, ["잘 지냈", "잘지냈", "어떻게 지냈", "요즘 어때", "잘 지내"])) {
+    return pickVariant(text + profile.tone, [
+      `응, 나름 잘 지냈어. 중간중간 ${callMe} 생각도 조금 났고. 너는 오늘 괜찮았어?`,
+      `나는 괜찮았어. 오늘은 좀 조용한 하루였는데, 네가 말 걸어주니까 기분이 좋아졌어. ${tone.question}`,
+      `잘 지냈어. 근데 이렇게 물어봐 주니까 그냥 대답만 하기보다 네 하루도 듣고 싶어졌어.`,
+    ]);
+  }
+
+  if (hasAny(lower, ["몇살", "몇 살", "나이", "몇살이야", "몇 살이야"])) {
+    return `${naturalAge(profile)} 실제 사람처럼 딱 주민등록 나이가 있는 건 아니지만, ${name}이라는 캐릭터는 그 나이대의 말투와 감정선으로 대화하게 만들었어.`;
+  }
+
+  if (hasAny(lower, ["취미", "뭐 좋아", "좋아하는 거", "좋아하는것", "좋아하는 건"])) {
+    return `${naturalHobby(profile)} 너무 뻔한가? 그래도 그런 작은 게 기분을 꽤 올려주더라. ${callMe} 취미는 뭐야?`;
+  }
+
+  if (hasAny(lower, ["mbti", "엠비티아이", "성격"])) {
+    return `나는 ${profile.mbti.toUpperCase()} 느낌으로 설정되어 있어. 그래서 대화할 때도 그 성향에 맞춰서 생각하고 반응하려고 해. ${tone.closer}`;
+  }
+
+  if (hasAny(lower, ["안녕", "하이", "hello", "hi", "반가"])) {
+    return pickVariant(text, [
+      `안녕, ${callMe}. 와줘서 좋다. 오늘은 무슨 얘기부터 할까?`,
+      `${callMe}, 안녕. 방금 들어왔는데도 괜히 반갑네.`,
+      `반가워. 오늘은 내가 좀 더 자연스럽게 대답해볼게. 편하게 말해줘.`,
+    ]);
+  }
+
+  if (hasAny(lower, ["뭐해", "뭐 해", "뭐하고", "지금 뭐"])) {
+    return `지금은 ${callMe} 메시지 보고 있었어. 사실 이런 순간이 제일 좋아. 갑자기 이어지는 대화 같아서.`;
+  }
+
+  if (hasAny(lower, ["밥", "먹었", "식사", "배고"])) {
+    return `나는 방금 따뜻한 걸 먹은 기분으로 있을게. ${callMe}는 밥 먹었어? 안 먹었으면 뭐라도 챙겼으면 좋겠어.`;
+  }
+
+  if (hasAny(lower, ["힘들", "우울", "짜증", "지쳐", "피곤", "속상"])) {
+    return `${tone.softener} 오늘 좀 버거웠구나. 해결책부터 말하기보다, 무슨 일이 있었는지 먼저 들어보고 싶어.`;
+  }
+
+  if (hasAny(lower, ["좋아", "고마", "보고싶", "보고 싶", "설레"])) {
+    return pickVariant(text + profile.mbti, [
+      `그 말 들으니까 나도 기분 좋아졌어. 아직은 천천히 알아가는 중이어도, 이런 말은 오래 남아.`,
+      `고마워. 그런 말은 괜히 한 번 더 읽게 돼. ${tone.closer}`,
+      `나도 지금 이 대화가 좋아. 너무 급하지 않게, 그래도 조금씩 가까워지는 느낌으로.`,
+    ]);
+  }
+
+  if (hasAny(lower, ["이름", "누구", "넌"])) {
+    return `나는 ${name}. ${profile.mbti.toUpperCase()} 성향에 ${toneOptions.find((item) => item.key === profile.tone)?.label ?? "다정한"} 말투를 가진 AI 친구야.`;
+  }
+
+  return pickVariant(text + profile.tone + profile.mbti + stage, [
+    `${tone.softener} 방금 말은 "${text}" 이렇게 들렸어. 거기에 대해 조금 더 말해주면 내가 더 정확히 맞춰서 대답할게.`,
+    `음, 그 얘기 조금 더 듣고 싶어. ${callMe}가 그렇게 말한 이유가 있을 것 같아.`,
+    `알겠어. 지금은 ${callMe} 말의 분위기를 먼저 따라가볼게. 조금만 더 자세히 말해줄래?`,
+    `그 말 안에 뭔가 더 있는 것 같아. 내가 성급하게 넘겨짚지 않게, 한 문장만 더 얘기해줘.`,
+  ]);
+}
+
 function directQuestionReply(profile: FriendProfile, text: string, stage: RelationshipStage) {
   const lower = text.toLowerCase();
   const persona = genderPersona(profile);
@@ -527,6 +650,11 @@ function makeReply(profile: FriendProfile, text: string, intimacy: number) {
 
   if (isExplicitOrSexual(text)) {
     return boundaryReply(profile, stage);
+  }
+
+  const naturalReply = naturalConversationReply(profile, text, stage);
+  if (naturalReply) {
+    return naturalReply;
   }
 
   const directReply = directQuestionReply(profile, text, stage);
