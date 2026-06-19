@@ -430,9 +430,9 @@ function naturalConversationReply(profile: FriendProfile, text: string, stage: R
 
   if (hasAny(lower, ["안녕", "하이", "hello", "hi", "반가"])) {
     return pickVariant(text, [
-      `안녕, ${callMe}. 와줘서 좋다. 오늘은 무슨 얘기부터 할까?`,
-      `${callMe}, 안녕. 방금 들어왔는데도 괜히 반갑네.`,
-      `반가워. 오늘은 내가 좀 더 자연스럽게 대답해볼게. 편하게 말해줘.`,
+      `${callMe}, 안녕. 나 ${name}이야. 반가워. 오늘은 무슨 얘기할까?`,
+      `${callMe}, 안녕. 이렇게 이름 부르면서 말하니까 더 친근하다.`,
+      `반가워, ${callMe}. 나랑 편하게 얘기해줘. 천천히 맞춰갈게.`,
     ]);
   }
 
@@ -510,9 +510,9 @@ function directQuestionReply(profile: FriendProfile, text: string, stage: Relati
 
   if (hasAny(lower, ["안녕", "하이", "hello", "hi", "반가"])) {
     return pickVariant(text, [
-      `안녕, ${you}. 와줘서 좋아요. 오늘은 어떤 얘기부터 해볼까요?`,
-      `${you}, 안녕. 이름 불러주니까 괜히 기분 좋아졌어요.`,
-      `반가워요. 오늘은 제가 엉뚱하게 말하면 바로 잡아줘요. 제대로 맞춰볼게요.`,
+      `${you}, 안녕. 나 ${name}이에요. 반가워요. 오늘은 어떤 얘기부터 해볼까요?`,
+      `${you}, 안녕. 이름을 넣어서 말하니까 훨씬 친근하네요.`,
+      `반가워요, ${you}. 제가 엉뚱하게 말하면 바로 잡아줘요. 제대로 맞춰볼게요.`,
     ]);
   }
 
