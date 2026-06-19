@@ -92,7 +92,8 @@ export default function NewEntryScreen() {
   const [stickerFontId, setStickerFontId] = useState<string>(DEFAULT_DIARY_FONT.id);
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
 
-  const canvasWidth = Math.max(280, width - 32);
+  const appWidth = Math.min(width, 420);
+  const canvasWidth = Math.max(280, appWidth - 32);
   const maxCanvasHeight = Math.max(420, height - 210);
   const canvasHeight = isVideoMode ? Math.min(canvasWidth * 1.6, maxCanvasHeight) : Math.min(canvasWidth * 1.2, maxCanvasHeight);
 

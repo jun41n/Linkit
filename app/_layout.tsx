@@ -22,6 +22,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
+import { Platform, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -84,13 +85,17 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView style={{ flex: 1 }}>
+          <GestureHandlerRootView style={styles.root}>
             <KeyboardProvider>
-              <DiariesProvider>
-                <StickersProvider>
-                  <RootLayoutNav />
-                </StickersProvider>
-              </DiariesProvider>
+              <View style={styles.stage}>
+                <View style={styles.appFrame}>
+                  <DiariesProvider>
+                    <StickersProvider>
+                      <RootLayoutNav />
+                    </StickersProvider>
+                  </DiariesProvider>
+                </View>
+              </View>
             </KeyboardProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>
@@ -98,3 +103,19 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#eef7ff" },
+  stage: {
+    flex: 1,
+    backgroundColor: "#eef7ff",
+    alignItems: Platform.OS === "web" ? "center" : "stretch",
+  },
+  appFrame: {
+    flex: 1,
+    width: "100%",
+    maxWidth: Platform.OS === "web" ? 420 : undefined,
+    backgroundColor: "#ffffff",
+    overflow: "hidden",
+  },
+});

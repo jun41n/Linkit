@@ -93,7 +93,8 @@ export default function EntryDetailScreen() {
     );
   }
   const diary = getDiary(entry.diaryId);
-  const canvasWidth = width - 32;
+  const appWidth = Math.min(width, 420);
+  const canvasWidth = Math.max(280, appWidth - 32);
   const canvasHeight = entry.isVideo ? canvasWidth * 1.6 : canvasWidth * 1.2;
   const photos = entry.photos ?? [];
 
