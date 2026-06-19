@@ -728,6 +728,30 @@ function normalizeProfile(profile: FriendProfile): FriendProfile {
   };
 }
 
+async function fetchAiFriendReply(profile: FriendProfile, messages: ChatMessage[], intimacy: number) {
+  const response = await fetch("/api/friend-chat", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      profile,
+      messages: messages.slice(-12),
+      stage: getStage(intimacy),
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("AI reply failed");
+  }
+
+  const data = (await response.json()) as { reply?: string };
+  const reply = data.reply?.trim();
+  if (!reply) {
+    throw new Error("AI reply was empty");
+  }
+
+  return reply;
+}
+
 export default function MyScreen() {
   const colors = useColors();
   const scroller = useRef<ScrollView>(null);
@@ -739,6 +763,7 @@ export default function MyScreen() {
   const [formMode, setFormMode] = useState<FormMode>("new");
   const [editingCharacterId, setEditingCharacterId] = useState<string | null>(null);
   const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
 
   const activeCharacter = characters.find((item) => item.id === activeCharacterId) ?? null;
   const activeTone = useMemo(
@@ -846,27 +871,51 @@ export default function MyScreen() {
     setMode("chat");
   };
 
-  const sendMessage = () => {
-    if (!activeCharacter) return;
+  const sendMessage = async () => {
+    if (!activeCharacter || isSending) return;
     const text = input.trim();
     if (!text) return;
     const newIntimacy = nextIntimacy(activeCharacter.intimacy, text);
     const userMessage: ChatMessage = { id: uid("me"), sender: "me", text, time: nowTime() };
-    const friendMessage: ChatMessage = {
-      id: uid("friend"),
-      sender: "friend",
-      text: makeReply(activeCharacter.profile, text, newIntimacy),
-      time: nowTime(),
-    };
+    const fallbackText = makeReply(activeCharacter.profile, text, newIntimacy);
     setCharacters((prev) =>
       prev.map((character) =>
         character.id === activeCharacter.id
-          ? { ...character, intimacy: newIntimacy, messages: [...character.messages, userMessage, friendMessage] }
+          ? { ...character, intimacy: newIntimacy, messages: [...character.messages, userMessage] }
           : character,
       ),
     );
     setInput("");
     requestAnimationFrame(() => scroller.current?.scrollToEnd({ animated: true }));
+
+    setIsSending(true);
+    try {
+      const replyText = await fetchAiFriendReply(
+        activeCharacter.profile,
+        [...activeCharacter.messages, userMessage],
+        newIntimacy,
+      );
+      const friendMessage: ChatMessage = { id: uid("friend"), sender: "friend", text: replyText, time: nowTime() };
+      setCharacters((prev) =>
+        prev.map((character) =>
+          character.id === activeCharacter.id
+            ? { ...character, messages: [...character.messages, friendMessage] }
+            : character,
+        ),
+      );
+    } catch {
+      const friendMessage: ChatMessage = { id: uid("friend"), sender: "friend", text: fallbackText, time: nowTime() };
+      setCharacters((prev) =>
+        prev.map((character) =>
+          character.id === activeCharacter.id
+            ? { ...character, messages: [...character.messages, friendMessage] }
+            : character,
+        ),
+      );
+    } finally {
+      setIsSending(false);
+      requestAnimationFrame(() => scroller.current?.scrollToEnd({ animated: true }));
+    }
   };
 
   const selectCharacter = (id: string) => {
@@ -1128,7 +1177,11 @@ export default function MyScreen() {
               sendMessage();
             }}
           />
-          <Pressable onPress={sendMessage} style={[styles.sendButton, { backgroundColor: colors.primary }]}>
+          <Pressable
+            onPress={sendMessage}
+            disabled={isSending}
+            style={[styles.sendButton, { backgroundColor: colors.primary, opacity: isSending ? 0.55 : 1 }]}
+          >
             <Ionicons name="send" size={19} color={colors.primaryForeground} style={styles.sendIcon} />
           </Pressable>
         </View>

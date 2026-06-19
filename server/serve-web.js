@@ -4,6 +4,7 @@ const path = require("path");
 
 const WEB_ROOT = path.resolve(__dirname, "..", "dist-web");
 const INDEX_FILE = path.join(WEB_ROOT, "index.html");
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.4-mini";
 
 const MIME_TYPES = {
   ".css": "text/css; charset=utf-8",
@@ -33,6 +34,134 @@ function sendFile(res, filePath) {
     .pipe(res);
 }
 
+function sendJson(res, statusCode, payload) {
+  res.writeHead(statusCode, {
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store",
+  });
+  res.end(JSON.stringify(payload));
+}
+
+function readJson(req) {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.on("data", (chunk) => {
+      body += chunk;
+      if (body.length > 32_000) {
+        req.destroy();
+        reject(new Error("Request too large"));
+      }
+    });
+    req.on("end", () => {
+      try {
+        resolve(body ? JSON.parse(body) : {});
+      } catch (error) {
+        reject(error);
+      }
+    });
+    req.on("error", reject);
+  });
+}
+
+function plainText(value, fallback = "") {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function extractOutputText(data) {
+  if (typeof data.output_text === "string" && data.output_text.trim()) {
+    return data.output_text.trim();
+  }
+
+  for (const item of data.output || []) {
+    for (const content of item.content || []) {
+      if (typeof content.text === "string" && content.text.trim()) {
+        return content.text.trim();
+      }
+    }
+  }
+
+  return "";
+}
+
+function profilePrompt(profile = {}, stage = "awkward") {
+  const myName = plainText(profile.myName, "사용자");
+  const friendName = plainText(profile.friendName, "하림");
+  const gender = profile.gender === "male" ? "남자친구" : "여자친구";
+  const mbti = plainText(profile.mbti, "ENFP").toUpperCase();
+  const tone = plainText(profile.tone, "warm");
+
+  return [
+    `너는 링킷 앱의 AI 이성친구 '${friendName}'이다.`,
+    `상대 이름은 '${myName}'이다. 상대를 자연스럽게 이름으로 불러라.`,
+    `관계 설정: ${gender}, MBTI ${mbti}, 말투 타입 ${tone}, 현재 친밀도 단계 ${stage}.`,
+    "목표는 실제 메신저 친구처럼 짧고 자연스럽게 이어가는 것이다.",
+    "사용자의 질문에는 먼저 직접 답하고, 그 다음에 가볍게 되묻거나 공감한다.",
+    "뜬금없는 페르소나 설명, 설정 설명, '조금 더 자세히 말해줘' 반복을 피한다.",
+    "한국어로 답하고 1~3문장 안에서 말한다.",
+    "노골적인 성적 대화, 미성년자처럼 보이는 설정, 위험한 요청은 부드럽게 거절하고 안전한 대화로 돌린다.",
+  ].join("\n");
+}
+
+async function handleFriendChat(req, res) {
+  if (req.method !== "POST") {
+    sendJson(res, 405, { error: "Method not allowed" });
+    return;
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    sendJson(res, 503, { error: "OPENAI_API_KEY is not configured" });
+    return;
+  }
+
+  try {
+    const payload = await readJson(req);
+    const profile = payload.profile || {};
+    const stage = plainText(payload.stage, "awkward");
+    const messages = Array.isArray(payload.messages) ? payload.messages.slice(-12) : [];
+    const input = [
+      {
+        role: "developer",
+        content: [{ type: "input_text", text: profilePrompt(profile, stage) }],
+      },
+      ...messages.map((message) => ({
+        role: message.sender === "friend" ? "assistant" : "user",
+        content: [{ type: "input_text", text: plainText(message.text).slice(0, 1000) }],
+      })),
+    ];
+
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        input,
+        max_output_tokens: 220,
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.error("OpenAI API error", response.status, data);
+      sendJson(res, 502, { error: "OpenAI request failed" });
+      return;
+    }
+
+    const reply = extractOutputText(data);
+    if (!reply) {
+      sendJson(res, 502, { error: "OpenAI response was empty" });
+      return;
+    }
+
+    sendJson(res, 200, { reply });
+  } catch (error) {
+    console.error("Friend chat API error", error);
+    sendJson(res, 500, { error: "Friend chat failed" });
+  }
+}
+
 function resolveRequestPath(urlPath) {
   const decoded = decodeURIComponent(urlPath);
   const normalized = path.normalize(decoded).replace(/^(\.\.(\/|\\|$))+/, "");
@@ -56,6 +185,12 @@ if (!fs.existsSync(INDEX_FILE)) {
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || "/", "http://localhost");
+
+  if (url.pathname === "/api/friend-chat") {
+    handleFriendChat(req, res);
+    return;
+  }
+
   const filePath = resolveRequestPath(url.pathname);
 
   if (!filePath) {
