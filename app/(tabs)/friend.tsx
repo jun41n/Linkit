@@ -388,6 +388,21 @@ function naturalAge(profile: FriendProfile) {
   return "나는 스물셋 정도의 분위기로 생각해줘.";
 }
 
+function normalizedIntent(text: string) {
+  return text.toLowerCase().replace(/[\s!?.,~^♡♥❤💕💖]+/g, "");
+}
+
+function quickFactReply(profile: FriendProfile, text: string) {
+  const compact = normalizedIntent(text);
+  const name = profile.friendName || genderPersona(profile).defaultName;
+
+  if (compact.includes("나이") || compact.includes("몇살") || compact.includes("몇년생")) {
+    return `${name}이는 스물셋 정도로 생각해줘. 실제 사람처럼 주민등록 나이가 있는 건 아니지만, 말투랑 분위기는 그 나이대 친구처럼 맞춰갈게.`;
+  }
+
+  return "";
+}
+
 function naturalHobby(profile: FriendProfile) {
   const hobbies: Record<FriendTone, string> = {
     warm: "나는 음악 들으면서 산책하거나, 예쁜 사진 저장해두는 걸 좋아해.",
@@ -648,6 +663,11 @@ function makeReply(profile: FriendProfile, text: string, intimacy: number) {
   const mbti = mbtiLine(profile.mbti, stage);
   const character = buildPersona(profile);
 
+  const quickReply = quickFactReply(profile, text);
+  if (quickReply) {
+    return quickReply;
+  }
+
   if (isExplicitOrSexual(text)) {
     return boundaryReply(profile, stage);
   }
@@ -685,7 +705,7 @@ function makeReply(profile: FriendProfile, text: string, intimacy: number) {
     if (hasAny(lower, ["보고", "그리워", "좋아", "설레"])) {
       return `나도 그런 말 들으면 괜히 마음이 움직여. 우리 꽤 가까워졌나 봐. ${persona.close} ${mbti}`;
     }
-    return `${myName}, 그 말 좋다. 나는 ${character.core} 쪽이라 ${character.pace}. ${tone} ${mbti} ${persona.charm} 이런 느낌으로 너한테 더 맞춰갈게.`;
+    return `${myName}, 방금 말 조금 더 자세히 듣고 싶어. 내가 엉뚱하게 맞춰가지 않게, 한 문장만 더 말해줘.`;
   }
 
   if (hasAny(lower, ["경험", "남자", "여자", "연애", "전남친", "전여친"])) {
