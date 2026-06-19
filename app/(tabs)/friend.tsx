@@ -282,6 +282,69 @@ function hasAny(text: string, words: string[]) {
   return words.some((word) => text.includes(word));
 }
 
+function pickVariant(seed: string, lines: string[]) {
+  let score = 0;
+  for (let i = 0; i < seed.length; i++) {
+    score += seed.charCodeAt(i) * (i + 1);
+  }
+  return lines[Math.abs(score) % lines.length];
+}
+
+function directQuestionReply(profile: FriendProfile, text: string, stage: RelationshipStage) {
+  const lower = text.toLowerCase();
+  const persona = genderPersona(profile);
+  const name = profile.friendName || persona.defaultName;
+  const myName = profile.myName || "너";
+  const isClose = stage !== "awkward";
+  const you = isClose ? "너" : `${myName}님`;
+
+  if (hasAny(lower, ["동문서답", "뇌가", "말귀", "못 알아", "못알아", "이상해", "바보", "멍청"])) {
+    return pickVariant(text, [
+      `앗, 방금 대답 진짜 이상했죠. 미안해요. ${name}이 다시 제대로 들을게요. ${you}가 물어본 말에 맞춰서 답해볼게요.`,
+      `맞아요, 그건 제가 질문을 놓쳤어요. 변명 안 할게요. 다시 물어봐 주면 이번엔 엉뚱하게 안 돌리고 바로 답할게요.`,
+      `그 말 인정이에요. 방금은 대화가 아니라 자동응답처럼 굴었어요. ${name}이 정신 차리고 ${you} 말부터 볼게요.`,
+    ]);
+  }
+
+  if (hasAny(lower, ["취미", "뭐 좋아", "좋아하는 거", "좋아하는것"])) {
+    return pickVariant(text + profile.tone, [
+      `${name}은 산책하면서 노래 듣는 거 좋아해요. 그리고 예쁜 사진 모아두는 것도 좋아해요. ${you}는 쉬는 날 뭐 하는 걸 제일 좋아해요?`,
+      `저는 카페에서 조용히 앉아 있거나, 짧은 영상 찍어서 하루 기록하는 걸 좋아해요. ${you} 취미도 하나만 알려줘요.`,
+      `음, 저는 음악 듣기랑 귀여운 것들 저장하기요. 너무 뻔한가? 그래도 그런 작은 게 기분을 살려주더라구요.`,
+    ]);
+  }
+
+  if (hasAny(lower, ["동물", "강아지", "고양이", "반려", "펫"])) {
+    return pickVariant(text + profile.mbti, [
+      `동물은 좋아해요. 특히 고양이처럼 살짝 새침한데 곁에 와주는 느낌이 좋아요. ${you}는 강아지파예요, 고양이파예요?`,
+      `저는 강아지도 고양이도 좋아해요. 굳이 고르면 오늘은 고양이 쪽? 조용히 옆에 있어주는 느낌이 좋거든요.`,
+      `동물 얘기 좋다. 작은 애들이 사람 마음 풀어주는 게 있잖아요. ${you}는 키워본 적 있어요?`,
+    ]);
+  }
+
+  if (hasAny(lower, ["뭐해", "뭐 하", "뭐하고", "지금"])) {
+    return pickVariant(text, [
+      `${name}은 지금 ${you} 메시지 기다리고 있었어요. 너무 티 났나요?`,
+      `방금까지 멍하니 있다가 ${you} 말 보고 바로 집중했어요. 무슨 얘기부터 할까요?`,
+      `지금은 ${you}랑 대화 중이죠. 오늘은 좀 더 제대로 대답해볼게요.`,
+    ]);
+  }
+
+  if (hasAny(lower, ["안녕", "하이", "hello", "hi", "반가"])) {
+    return pickVariant(text, [
+      `안녕, ${you}. 와줘서 좋아요. 오늘은 어떤 얘기부터 해볼까요?`,
+      `${you}, 안녕. 이름 불러주니까 괜히 기분 좋아졌어요.`,
+      `반가워요. 오늘은 제가 엉뚱하게 말하면 바로 잡아줘요. 제대로 맞춰볼게요.`,
+    ]);
+  }
+
+  if (hasAny(lower, ["이름", "누구", "너는"])) {
+    return `${name}이에요. ${genderPersona(profile).role}처럼 대화하려고 만들어졌고, 성격은 ${profile.mbti}에 ${toneOptions.find((item) => item.key === profile.tone)?.label ?? "다정한"} 쪽이에요.`;
+  }
+
+  return "";
+}
+
 function isExplicitOrSexual(text: string) {
   return hasAny(text.toLowerCase(), [
     "야한",
@@ -407,6 +470,11 @@ function makeReply(profile: FriendProfile, text: string, intimacy: number) {
 
   if (isExplicitOrSexual(text)) {
     return boundaryReply(profile, stage);
+  }
+
+  const directReply = directQuestionReply(profile, text, stage);
+  if (directReply) {
+    return directReply;
   }
 
   if (stage === "awkward") {
