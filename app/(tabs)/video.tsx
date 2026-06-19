@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
   Image,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,8 +15,66 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useDiaries } from "@/context/DiariesContext";
 import { useColors } from "@/hooks/useColors";
 
+const inviteUrl = "http://158.179.162.39:8031/";
+const inviteText = "진짜 링킷에서 같이 기록해요.";
+
+type ShareTarget = {
+  label: string;
+  icon?: keyof typeof Ionicons.glyphMap;
+  text?: string;
+  bg: string;
+  color: string;
+  action: "copy" | "native" | "url";
+  url?: string;
+};
+
+const encodedInviteUrl = encodeURIComponent(inviteUrl);
+const encodedInviteText = encodeURIComponent(inviteText);
+
+const shareTargets: ShareTarget[] = [
+  { label: "링크 복사", icon: "link-outline", bg: "#8D49B3", color: "white", action: "copy" },
+  { label: "X", text: "X", bg: "#050008", color: "white", action: "url", url: `https://twitter.com/intent/tweet?text=${encodedInviteText}&url=${encodedInviteUrl}` },
+  { label: "페북", icon: "logo-facebook", bg: "#1877F2", color: "white", action: "url", url: `https://www.facebook.com/sharer/sharer.php?u=${encodedInviteUrl}` },
+  { label: "인스타", icon: "logo-instagram", bg: "#F15A80", color: "white", action: "native" },
+  { label: "카카오", text: "●", bg: "#FFE500", color: "#3C1E1E", action: "url", url: `https://sharer.kakao.com/talk/friends/picker/link?url=${encodedInviteUrl}` },
+  { label: "틱톡", text: "♪", bg: "#050008", color: "white", action: "native" },
+  { label: "라인", text: "LINE", bg: "#06C755", color: "white", action: "url", url: `https://social-plugins.line.me/lineit/share?url=${encodedInviteUrl}` },
+  { label: "스레드", text: "@", bg: "#050008", color: "white", action: "url", url: `https://www.threads.net/intent/post?text=${encodedInviteText}%20${encodedInviteUrl}` },
+  { label: "왓츠앱", icon: "logo-whatsapp", bg: "#25D366", color: "white", action: "url", url: `https://wa.me/?text=${encodedInviteText}%20${encodedInviteUrl}` },
+];
+
 function formatHour(d: Date) {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+async function copyInviteLink() {
+  const clipboard = (globalThis.navigator as any)?.clipboard;
+  if (clipboard?.writeText) {
+    await clipboard.writeText(inviteUrl);
+    return true;
+  }
+  return false;
+}
+
+async function openShare(target: ShareTarget) {
+  if (target.action === "copy") {
+    await copyInviteLink();
+    return;
+  }
+
+  if (target.action === "native") {
+    const nav = globalThis.navigator as any;
+    if (nav?.share) {
+      await nav.share({ title: "진짜 링킷", text: inviteText, url: inviteUrl });
+      return;
+    }
+    await copyInviteLink();
+    return;
+  }
+
+  if (target.url) {
+    await Linking.openURL(target.url);
+  }
 }
 
 export default function VideoLogScreen() {
@@ -24,6 +83,8 @@ export default function VideoLogScreen() {
   const { entries, diaries } = useDiaries();
   const [menuOpen, setMenuOpen] = useState(false);
   const [logType, setLogType] = useState<"daily" | "travel">("daily");
+  const [sharePanelOpen, setSharePanelOpen] = useState(false);
+  const [shareMessage, setShareMessage] = useState("");
   const logLabel = logType === "daily" ? "데일리 로그" : "트래블 로그";
   const logTint = logType === "daily" ? "#FFB7C5" : "#A8C8F0";
   const logEmoji = logType === "daily" ? "🌟" : "✈️";
@@ -35,6 +96,22 @@ export default function VideoLogScreen() {
 
   const todayVlog = diaries.find((d) => d.kind === "SOLO");
   const familyShared = diaries.find((d) => d.kind === "SHARED");
+
+  const showInvitePanel = async () => {
+    const copied = await copyInviteLink();
+    setShareMessage(copied ? "링크가 카피되었습니다." : "링크를 복사하지 못했어요. 아래 버튼으로 공유해 주세요.");
+    setSharePanelOpen(true);
+  };
+
+  const handleShareTarget = async (target: ShareTarget) => {
+    try {
+      await openShare(target);
+      setShareMessage(target.action === "copy" ? "링크가 카피되었습니다." : `${target.label} 공유창을 열었습니다.`);
+    } catch {
+      const copied = await copyInviteLink();
+      setShareMessage(copied ? "공유창을 열지 못해서 링크를 대신 카피했습니다." : "공유창을 열지 못했어요.");
+    }
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.paperWhite }]} edges={["top"]}>
@@ -52,7 +129,7 @@ export default function VideoLogScreen() {
         </View>
 
         <View style={styles.headerActions}>
-          <Pressable style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Pressable onPress={showInvitePanel} style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Ionicons name="share-outline" size={18} color={colors.foreground} />
           </Pressable>
           <Pressable
@@ -146,9 +223,7 @@ export default function VideoLogScreen() {
             <View style={styles.cardHeaderRow}>
               <View style={styles.cardLeft}>
                 <Text style={[styles.cardTitle, { color: colors.foreground }]}>{familyShared.name}</Text>
-                <Text style={[styles.cardSub, { color: colors.mutedForeground }]}>
-                  로그 업로드 완료 10분
-                </Text>
+                <Text style={[styles.cardSub, { color: colors.mutedForeground }]}>로그 업로드 완료 10분</Text>
               </View>
               <View style={styles.faceRow}>
                 <View style={[styles.faceMini, { backgroundColor: "#FFB7C5" }]}>
@@ -228,13 +303,46 @@ export default function VideoLogScreen() {
           <Text style={[styles.inviteText, { color: colors.foreground }]}>영상 업로드</Text>
         </Pressable>
 
-        <Pressable style={[styles.inviteCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Pressable onPress={showInvitePanel} style={[styles.inviteCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.invitePlus, { borderColor: colors.border }]}>
             <Ionicons name="add" size={22} color={colors.foreground} />
           </View>
           <Text style={[styles.inviteText, { color: colors.foreground }]}>친구 초대</Text>
         </Pressable>
       </ScrollView>
+
+      {sharePanelOpen && (
+        <View style={styles.shareOverlay}>
+          <Pressable style={styles.shareBackdrop} onPress={() => setSharePanelOpen(false)} />
+          <View style={styles.sharePanel}>
+            <View style={styles.copiedToast}>
+              <Ionicons name="checkmark-circle" size={18} color="white" />
+              <Text style={styles.copiedText}>{shareMessage}</Text>
+            </View>
+
+            <View style={styles.shareHeaderRow}>
+              <View style={styles.shareLine} />
+              <Text style={styles.shareTitle}>SNS로 바로 공유</Text>
+              <View style={styles.shareLine} />
+            </View>
+
+            <View style={styles.shareGrid}>
+              {shareTargets.map((target) => (
+                <Pressable key={target.label} onPress={() => handleShareTarget(target)} style={styles.shareTarget}>
+                  <View style={[styles.shareCircle, { backgroundColor: target.bg }]}>
+                    {target.icon ? (
+                      <Ionicons name={target.icon} size={30} color={target.color} />
+                    ) : (
+                      <Text style={[styles.shareCircleText, { color: target.color }]}>{target.text}</Text>
+                    )}
+                  </View>
+                  <Text style={styles.shareLabel}>{target.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -371,4 +479,88 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   inviteText: { fontFamily: "NotoSansKR_700Bold", fontSize: 14 },
+  shareOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "flex-end",
+    zIndex: 50,
+  },
+  shareBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.18)",
+  },
+  sharePanel: {
+    marginHorizontal: 18,
+    marginBottom: 18,
+    borderRadius: 28,
+    paddingHorizontal: 22,
+    paddingTop: 18,
+    paddingBottom: 26,
+    backgroundColor: "#651087",
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 24,
+  },
+  copiedToast: {
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    marginBottom: 14,
+  },
+  copiedText: {
+    color: "white",
+    fontFamily: "NotoSansKR_700Bold",
+    fontSize: 13,
+    textAlign: "center",
+  },
+  shareHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 18,
+  },
+  shareLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.22)",
+  },
+  shareTitle: {
+    color: "rgba(255,255,255,0.55)",
+    fontFamily: "NotoSansKR_700Bold",
+    fontSize: 13,
+  },
+  shareGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    rowGap: 22,
+    columnGap: 18,
+  },
+  shareTarget: {
+    width: 56,
+    alignItems: "center",
+    gap: 8,
+  },
+  shareCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  shareCircleText: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 16,
+  },
+  shareLabel: {
+    color: "rgba(255,255,255,0.78)",
+    fontFamily: "NotoSansKR_700Bold",
+    fontSize: 11,
+    textAlign: "center",
+  },
 });
