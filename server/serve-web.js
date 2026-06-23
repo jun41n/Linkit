@@ -102,6 +102,16 @@ function profilePrompt(profile = {}, stage = "awkward") {
   ].join("\n");
 }
 
+function transcriptText(messages) {
+  return messages
+    .map((message) => {
+      const speaker = message.sender === "friend" ? "하림" : "사용자";
+      return `${speaker}: ${plainText(message.text).slice(0, 1000)}`;
+    })
+    .filter((line) => line.trim() !== "사용자:" && line.trim() !== "하림:")
+    .join("\n");
+}
+
 async function handleFriendChat(req, res) {
   if (req.method !== "POST") {
     sendJson(res, 405, { error: "Method not allowed" });
@@ -118,15 +128,21 @@ async function handleFriendChat(req, res) {
     const profile = payload.profile || {};
     const stage = plainText(payload.stage, "awkward");
     const messages = Array.isArray(payload.messages) ? payload.messages.slice(-12) : [];
+    const transcript = transcriptText(messages);
     const input = [
       {
         role: "developer",
         content: [{ type: "input_text", text: profilePrompt(profile, stage) }],
       },
-      ...messages.map((message) => ({
-        role: message.sender === "friend" ? "assistant" : "user",
-        content: [{ type: "input_text", text: plainText(message.text).slice(0, 1000) }],
-      })),
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: `아래는 지금까지의 대화야. 마지막 사용자 말에 바로 답해.\n\n${transcript}`,
+          },
+        ],
+      },
     ];
 
     const response = await fetch("https://api.openai.com/v1/responses", {
