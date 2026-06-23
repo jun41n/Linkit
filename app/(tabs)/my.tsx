@@ -1,13 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GlassSurface } from "@/components/GlassSurface";
 import { useDiaries } from "@/context/DiariesContext";
 import { useStickers } from "@/context/StickersContext";
 import { useColors } from "@/hooks/useColors";
+
+const PROFILE_PHOTO_KEY = "linkit.my.profilePhoto";
 
 interface RowProps {
   label: string;
@@ -25,6 +27,33 @@ export default function MyScreen() {
   const ownedCount = ownedPackIds.length;
   const totalPacks = packs.length;
 
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof globalThis === "undefined") return;
+    const saved = (globalThis as any).localStorage?.getItem(PROFILE_PHOTO_KEY);
+    if (saved) setProfilePhoto(saved);
+  }, []);
+
+  const pickProfilePhoto = () => {
+    if (typeof document === "undefined") return;
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = typeof reader.result === "string" ? reader.result : "";
+        if (!result) return;
+        setProfilePhoto(result);
+        (globalThis as any).localStorage?.setItem(PROFILE_PHOTO_KEY, result);
+      };
+      reader.readAsDataURL(file);
+    };
+    input.click();
+  };
   const Row = ({ label, onPress, rightExtra, badge }: RowProps) => (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.row, { opacity: pressed ? 0.7 : 1 }]}>
       <Text style={[styles.rowLabel, { color: colors.foreground }]}>{label}</Text>
@@ -59,8 +88,17 @@ export default function MyScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.profile}>
-          <View style={[styles.avatar, { backgroundColor: colors.muted }]}>
-            <Ionicons name="happy-outline" size={48} color={colors.mutedForeground} />
+          <View style={styles.avatarWrap}>
+            <Pressable onPress={pickProfilePhoto} style={[styles.avatar, { backgroundColor: colors.muted }]}>
+              {profilePhoto ? (
+                <Image source={{ uri: profilePhoto }} style={styles.avatarImage} />
+              ) : (
+                <Ionicons name="happy-outline" size={48} color={colors.mutedForeground} />
+              )}
+            </Pressable>
+            <Pressable onPress={pickProfilePhoto} style={[styles.photoButton, { backgroundColor: colors.primary, borderColor: colors.background }]}> 
+              <Ionicons name="camera" size={18} color={colors.primaryForeground} />
+            </Pressable>
           </View>
           <Text style={[styles.profileName, { color: colors.foreground }]}>june 님</Text>
           <Text style={[styles.profileId, { color: colors.mutedForeground }]}>ID: D8WNQ9XYQ</Text>
