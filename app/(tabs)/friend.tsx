@@ -1258,6 +1258,9 @@ export default function MyScreen() {
     return (
       <>
         <View style={styles.header}>
+          <Pressable onPress={() => setMode("list")} hitSlop={10} style={[styles.backButton, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Ionicons name="chevron-back" size={24} color={colors.foreground} />
+          </Pressable>
           <View style={styles.titleBlock}>
             <Text style={[styles.eyebrow, { color: colors.primary }]}>AI 이성친구</Text>
             <Text style={[styles.title, { color: colors.foreground }]}>{profile.friendName}</Text>
@@ -1420,6 +1423,14 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   titleBlock: { flex: 1 },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   eyebrow: { fontFamily: "NotoSansKR_700Bold", fontSize: 13, marginBottom: 2 },
   title: { fontFamily: "NotoSansKR_700Bold", fontSize: 34 },
   subtitle: { fontFamily: "NotoSansKR_400Regular", fontSize: 14, marginTop: 2 },
