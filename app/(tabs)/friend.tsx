@@ -21,6 +21,15 @@ type FriendTone = "warm" | "playful" | "calm" | "direct" | "tsundere" | "romanti
 type ScreenMode = "chat" | "list" | "form";
 type FormMode = "new" | "edit";
 
+type VoicePreset = {
+  id: string;
+  label: string;
+  gender: FriendGender;
+  openaiVoice: string;
+  desc: string;
+  instructions: string;
+};
+
 interface FriendProfile {
   myName: string;
   friendName: string;
@@ -52,6 +61,19 @@ interface SavedFriendStateV2 {
 const STORAGE_KEY = "linkit.aiFriend.v2";
 const LEGACY_STORAGE_KEY = "linkit.aiFriend.v1";
 const MAX_CHARACTERS = 5;
+
+const voicePresets: VoicePreset[] = [
+  { id: "nova", label: "Nova", gender: "female", openaiVoice: "nova", desc: "bright", instructions: "Speak in Korean with a bright, friendly young female voice. Keep it natural and close." },
+  { id: "vega", label: "Vega", gender: "female", openaiVoice: "shimmer", desc: "soft", instructions: "Speak in Korean with a soft, warm female voice. Sound caring, not theatrical." },
+  { id: "lyra", label: "Lyra", gender: "female", openaiVoice: "coral", desc: "clear", instructions: "Speak in Korean with a clear, lively female voice. Keep the rhythm conversational." },
+  { id: "luna", label: "Luna", gender: "female", openaiVoice: "sage", desc: "calm", instructions: "Speak in Korean with a calm, gentle female voice. Make it feel intimate and steady." },
+  { id: "astra", label: "Astra", gender: "female", openaiVoice: "alloy", desc: "clean", instructions: "Speak in Korean with a clean, balanced feminine tone. Keep it relaxed and natural." },
+  { id: "orion", label: "Orion", gender: "male", openaiVoice: "onyx", desc: "deep", instructions: "Speak in Korean with a low, warm male voice. Sound relaxed and trustworthy." },
+  { id: "atlas", label: "Atlas", gender: "male", openaiVoice: "echo", desc: "bright", instructions: "Speak in Korean with a bright, friendly male voice. Keep it easygoing and natural." },
+  { id: "ursa", label: "Ursa", gender: "male", openaiVoice: "fable", desc: "warm", instructions: "Speak in Korean with a warm, expressive male voice. Sound close, not dramatic." },
+  { id: "cedar", label: "Cedar", gender: "male", openaiVoice: "cedar", desc: "steady", instructions: "Speak in Korean with a steady, grounded male voice. Keep the pace comfortable." },
+  { id: "marin", label: "Marin", gender: "male", openaiVoice: "marin", desc: "smooth", instructions: "Speak in Korean with a smooth, gentle male voice. Make it conversational and soft." },
+];
 
 const defaultProfile: FriendProfile = {
   myName: "june",
@@ -752,10 +774,29 @@ async function fetchAiFriendReply(profile: FriendProfile, messages: ChatMessage[
   return reply;
 }
 
+async function fetchFriendSpeech(text: string, voice: VoicePreset) {
+  const response = await fetch("/api/friend-speech", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      text,
+      voice: voice.openaiVoice,
+      instructions: voice.instructions,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("AI speech failed");
+  }
+
+  return response.blob();
+}
 export default function MyScreen() {
   const colors = useColors();
   const scroller = useRef<ScrollView>(null);
   const didHydrate = useRef(false);
+  const recognitionRef = useRef<any>(null);
+  const audioRef = useRef<any>(null);
   const [characters, setCharacters] = useState<AiCharacter[]>([]);
   const [activeCharacterId, setActiveCharacterId] = useState<string | null>(null);
   const [draftProfile, setDraftProfile] = useState(defaultProfile);
@@ -764,12 +805,23 @@ export default function MyScreen() {
   const [editingCharacterId, setEditingCharacterId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [voicePickerOpen, setVoicePickerOpen] = useState(false);
+  const [selectedVoiceId, setSelectedVoiceId] = useState("nova");
 
   const activeCharacter = characters.find((item) => item.id === activeCharacterId) ?? null;
   const activeTone = useMemo(
     () => toneOptions.find((item) => item.key === activeCharacter?.profile.tone) ?? toneOptions[0],
     [activeCharacter?.profile.tone],
   );
+  const selectedVoice = useMemo(
+    () => voicePresets.find((item) => item.id === selectedVoiceId) ?? voicePresets[0],
+    [selectedVoiceId],
+  );
+  const speechSupported =
+    Platform.OS === "web" &&
+    typeof globalThis !== "undefined" &&
+    Boolean((globalThis as any).SpeechRecognition || (globalThis as any).webkitSpeechRecognition);
 
   useEffect(() => {
     async function hydrate() {
@@ -871,9 +923,30 @@ export default function MyScreen() {
     setMode("chat");
   };
 
-  const sendMessage = async () => {
+  const playVoiceReply = async (replyText: string) => {
+    if (Platform.OS !== "web") return;
+    const AudioCtor = (globalThis as any).Audio;
+    const URLCtor = (globalThis as any).URL;
+    if (!AudioCtor || !URLCtor) return;
+
+    const blob = await fetchFriendSpeech(replyText, selectedVoice);
+    const audioUrl = URLCtor.createObjectURL(blob);
+    audioRef.current?.pause?.();
+    const audio = new AudioCtor(audioUrl);
+    audioRef.current = audio;
+    audio.onended = () => URLCtor.revokeObjectURL(audioUrl);
+    audio.onerror = () => URLCtor.revokeObjectURL(audioUrl);
+    await audio.play();
+  };
+
+  const speakAfterReply = (replyText: string, enabled: boolean) => {
+    if (!enabled) return;
+    playVoiceReply(replyText).catch(() => {});
+  };
+
+  const sendMessage = async (spokenText?: string, options: { speak?: boolean } = {}) => {
     if (!activeCharacter || isSending) return;
-    const text = input.trim();
+    const text = (spokenText ?? input).trim();
     if (!text) return;
     const newIntimacy = nextIntimacy(activeCharacter.intimacy, text);
     const userMessage: ChatMessage = { id: uid("me"), sender: "me", text, time: nowTime() };
@@ -903,6 +976,7 @@ export default function MyScreen() {
             : character,
         ),
       );
+      speakAfterReply(replyText, Boolean(options.speak));
     } catch {
       const friendMessage: ChatMessage = { id: uid("friend"), sender: "friend", text: fallbackText, time: nowTime() };
       setCharacters((prev) =>
@@ -912,12 +986,39 @@ export default function MyScreen() {
             : character,
         ),
       );
+      speakAfterReply(fallbackText, Boolean(options.speak));
     } finally {
       setIsSending(false);
       requestAnimationFrame(() => scroller.current?.scrollToEnd({ animated: true }));
     }
   };
 
+  const startVoiceInput = () => {
+    if (Platform.OS !== "web" || !speechSupported || isSending) return;
+    if (isListening) {
+      recognitionRef.current?.stop?.();
+      setIsListening(false);
+      return;
+    }
+
+    const Recognition = (globalThis as any).SpeechRecognition || (globalThis as any).webkitSpeechRecognition;
+    const recognition = new Recognition();
+    recognitionRef.current = recognition;
+    recognition.lang = "ko-KR";
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    recognition.maxAlternatives = 1;
+    recognition.onstart = () => setIsListening(true);
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results?.[0]?.[0]?.transcript?.trim?.() ?? "";
+      if (transcript) {
+        sendMessage(transcript, { speak: true });
+      }
+    };
+    recognition.start();
+  };
   const selectCharacter = (id: string) => {
     setActiveCharacterId(id);
     setMode("chat");
@@ -1161,7 +1262,71 @@ export default function MyScreen() {
           })}
         </ScrollView>
 
+        {voicePickerOpen && (
+          <View style={[styles.voicePanel, { borderColor: colors.border, backgroundColor: colors.card }]}>
+            <View style={styles.voicePanelHeader}>
+              <Text style={[styles.voicePanelTitle, { color: colors.foreground }]}>목소리 선택</Text>
+              <Text style={[styles.voicePanelSub, { color: colors.mutedForeground }]}>{selectedVoice.label}</Text>
+            </View>
+            <View style={styles.voiceGroups}>
+              {(["female", "male"] as FriendGender[]).map((gender) => (
+                <View key={gender} style={styles.voiceGroup}>
+                  <Text style={[styles.voiceGroupLabel, { color: colors.mutedForeground }]}>
+                    {gender === "female" ? "여자 목소리" : "남자 목소리"}
+                  </Text>
+                  <View style={styles.voiceGrid}>
+                    {voicePresets
+                      .filter((voice) => voice.gender === gender)
+                      .map((voice) => {
+                        const active = selectedVoice.id === voice.id;
+                        return (
+                          <Pressable
+                            key={voice.id}
+                            onPress={() => {
+                              setSelectedVoiceId(voice.id);
+                              setVoicePickerOpen(false);
+                            }}
+                            style={[
+                              styles.voiceChip,
+                              {
+                                borderColor: active ? colors.primary : colors.border,
+                                backgroundColor: active ? colors.secondary : colors.background,
+                              },
+                            ]}
+                          >
+                            <Text style={[styles.voiceName, { color: active ? colors.primary : colors.foreground }]}>{voice.label}</Text>
+                            <Text style={[styles.voiceDesc, { color: colors.mutedForeground }]}>{voice.desc}</Text>
+                          </Pressable>
+                        );
+                      })}
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         <View style={[styles.composer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+          <Pressable
+            onPress={() => setVoicePickerOpen((prev) => !prev)}
+            style={[styles.voiceButton, { borderColor: colors.border, backgroundColor: colors.card }]}
+          >
+            <Ionicons name="volume-high-outline" size={20} color={colors.foreground} />
+          </Pressable>
+          <Pressable
+            onPress={startVoiceInput}
+            disabled={!speechSupported || isSending}
+            style={[
+              styles.voiceButton,
+              {
+                borderColor: isListening ? colors.primary : colors.border,
+                backgroundColor: isListening ? colors.secondary : colors.card,
+                opacity: !speechSupported || isSending ? 0.45 : 1,
+              },
+            ]}
+          >
+            <Ionicons name={isListening ? "mic" : "mic-outline"} size={21} color={isListening ? colors.primary : colors.foreground} />
+          </Pressable>
           <TextInput
             value={input}
             onChangeText={setInput}
@@ -1178,7 +1343,7 @@ export default function MyScreen() {
             }}
           />
           <Pressable
-            onPress={sendMessage}
+            onPress={() => sendMessage()}
             disabled={isSending}
             style={[styles.sendButton, { backgroundColor: colors.primary, opacity: isSending ? 0.55 : 1 }]}
           >
@@ -1322,7 +1487,39 @@ const styles = StyleSheet.create({
     fontFamily: "NotoSansKR_500Medium",
     fontSize: 15,
   },
-  sendButton: {
+  voicePanel: {
+    marginHorizontal: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 12,
+    gap: 10,
+  },
+  voicePanelHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  voicePanelTitle: { fontFamily: "NotoSansKR_700Bold", fontSize: 15 },
+  voicePanelSub: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
+  voiceGroups: { gap: 10 },
+  voiceGroup: { gap: 6 },
+  voiceGroupLabel: { fontFamily: "NotoSansKR_700Bold", fontSize: 11 },
+  voiceGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  voiceChip: {
+    width: "31.8%",
+    minWidth: 86,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  voiceName: { fontFamily: "Inter_700Bold", fontSize: 13 },
+  voiceDesc: { fontFamily: "Inter_500Medium", fontSize: 10, marginTop: 2 },
+  voiceButton: {
+    width: 40,
+    height: 48,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },  sendButton: {
     width: 48,
     height: 48,
     borderRadius: 24,

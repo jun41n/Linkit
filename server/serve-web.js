@@ -5,6 +5,8 @@ const path = require("path");
 const WEB_ROOT = path.resolve(__dirname, "..", "dist-web");
 const INDEX_FILE = path.join(WEB_ROOT, "index.html");
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const OPENAI_TTS_MODEL = process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts";
+const ALLOWED_TTS_VOICES = new Set(["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse", "marin", "cedar"]);
 
 const MIME_TYPES = {
   ".css": "text/css; charset=utf-8",
@@ -40,6 +42,15 @@ function sendJson(res, statusCode, payload) {
     "cache-control": "no-store",
   });
   res.end(JSON.stringify(payload));
+}
+
+function sendAudio(res, audioBuffer) {
+  res.writeHead(200, {
+    "content-type": "audio/mpeg",
+    "cache-control": "no-store",
+    "content-length": audioBuffer.length,
+  });
+  res.end(audioBuffer);
 }
 
 function readJson(req) {
@@ -182,6 +193,63 @@ async function handleFriendChat(req, res) {
   }
 }
 
+async function handleFriendSpeech(req, res) {
+  if (req.method !== "POST") {
+    sendJson(res, 405, { error: "Method not allowed" });
+    return;
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    sendJson(res, 503, { error: "OPENAI_API_KEY is not configured" });
+    return;
+  }
+
+  try {
+    const payload = await readJson(req);
+    const input = plainText(payload.text).slice(0, 1200);
+    const voice = plainText(payload.voice, "nova").toLowerCase();
+    const instructions = plainText(payload.instructions, "Speak naturally in Korean with a warm, conversational tone.").slice(0, 600);
+
+    if (!input) {
+      sendJson(res, 400, { error: "Text is required" });
+      return;
+    }
+
+    if (!ALLOWED_TTS_VOICES.has(voice)) {
+      sendJson(res, 400, { error: "Unsupported voice" });
+      return;
+    }
+
+    const response = await fetch("https://api.openai.com/v1/audio/speech", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: OPENAI_TTS_MODEL,
+        voice,
+        input,
+        instructions,
+        response_format: "mp3",
+        speed: 1.0,
+      }),
+    });
+
+    if (!response.ok) {
+      const data = await response.text().catch(() => "");
+      console.error("OpenAI speech API error", response.status, data.slice(0, 500));
+      sendJson(res, 502, { error: "OpenAI speech request failed" });
+      return;
+    }
+
+    const audioBuffer = Buffer.from(await response.arrayBuffer());
+    sendAudio(res, audioBuffer);
+  } catch (error) {
+    console.error("Friend speech API error", error);
+    sendJson(res, 500, { error: "Friend speech failed" });
+  }
+}
 function resolveRequestPath(urlPath) {
   const decoded = decodeURIComponent(urlPath);
   const normalized = path.normalize(decoded).replace(/^(\.\.(\/|\\|$))+/, "");
@@ -208,6 +276,11 @@ const server = http.createServer((req, res) => {
 
   if (url.pathname === "/api/friend-chat") {
     handleFriendChat(req, res);
+    return;
+  }
+
+  if (url.pathname === "/api/friend-speech") {
+    handleFriendSpeech(req, res);
     return;
   }
 
