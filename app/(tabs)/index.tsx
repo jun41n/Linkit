@@ -18,9 +18,9 @@ import { DiaryKind, useDiaries } from "@/context/DiariesContext";
 import { useColors } from "@/hooks/useColors";
 
 const TABS: { key: DiaryKind; label: string }[] = [
-  { key: "SHARED", label: "함께 쓰는" },
-  { key: "FAVORITE", label: "즐겨 쓰는" },
   { key: "SOLO", label: "혼자 쓰는" },
+  { key: "FAVORITE", label: "즐겨 쓰는" },
+  { key: "SHARED", label: "함께 쓰는" },
 ];
 
 export default function BookshelfScreen() {
