@@ -4,7 +4,7 @@ const path = require("path");
 
 const WEB_ROOT = path.resolve(__dirname, "..", "dist-web");
 const INDEX_FILE = path.join(WEB_ROOT, "index.html");
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.4-mini";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
 const MIME_TYPES = {
   ".css": "text/css; charset=utf-8",
