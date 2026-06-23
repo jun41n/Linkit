@@ -96,7 +96,7 @@ export default function MyScreen() {
                 <Ionicons name="happy-outline" size={48} color={colors.mutedForeground} />
               )}
             </Pressable>
-            <Pressable onPress={pickProfilePhoto} style={[styles.photoButton, { backgroundColor: colors.primary, borderColor: colors.background }]}> 
+            <Pressable onPress={pickProfilePhoto} style={[styles.photoButton, { backgroundColor: colors.primary, borderColor: colors.background }]} hitSlop={8}>
               <Ionicons name="camera" size={18} color={colors.primaryForeground} />
             </Pressable>
           </View>
