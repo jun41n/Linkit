@@ -1024,6 +1024,32 @@ export default function MyScreen() {
     setMode("chat");
   };
 
+  const deleteCharacter = (id: string) => {
+    setCharacters((prev) => {
+      const next = prev.filter((character) => character.id !== id);
+      if (next.length === 0) {
+        setActiveCharacterId(null);
+        setEditingCharacterId(null);
+        setFormMode("new");
+        setDraftProfile(defaultProfile);
+        setMode("form");
+        return [];
+      }
+
+      if (activeCharacterId === id) {
+        setActiveCharacterId(next[0].id);
+        setMode("list");
+      }
+
+      if (editingCharacterId === id) {
+        setEditingCharacterId(null);
+        setFormMode("new");
+      }
+
+      return next;
+    });
+  };
+
   const renderSetup = () => (
     <ScrollView contentContainerStyle={styles.setupContent}>
       <GlassSurface variant="card" tone="warm" borderRadius={18} style={styles.setupCard}>
@@ -1168,9 +1194,28 @@ export default function MyScreen() {
                   </Text>
                   <Text style={[styles.characterMeta, { color: colors.mutedForeground }]}>{stageLabel(character.intimacy)}</Text>
                 </View>
-                <Pressable onPress={() => openEditCharacterForm(character)} hitSlop={10} style={styles.smallIconButton}>
-                  <Ionicons name="create-outline" size={20} color={colors.foreground} />
-                </Pressable>
+                <View style={styles.characterActions}>
+                  <Pressable
+                    onPress={(event: any) => {
+                      event.stopPropagation?.();
+                      openEditCharacterForm(character);
+                    }}
+                    hitSlop={10}
+                    style={styles.smallIconButton}
+                  >
+                    <Ionicons name="create-outline" size={20} color={colors.foreground} />
+                  </Pressable>
+                  <Pressable
+                    onPress={(event: any) => {
+                      event.stopPropagation?.();
+                      deleteCharacter(character.id);
+                    }}
+                    hitSlop={10}
+                    style={styles.smallIconButton}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#ef5d6c" />
+                  </Pressable>
+                </View>
               </Pressable>
             </GlassSurface>
           );
@@ -1438,6 +1483,7 @@ const styles = StyleSheet.create({
   characterName: { fontFamily: "NotoSansKR_700Bold", fontSize: 18 },
   characterMeta: { fontFamily: "NotoSansKR_400Regular", fontSize: 12, marginTop: 2 },
   characterPersona: { fontFamily: "NotoSansKR_400Regular", fontSize: 11, lineHeight: 16, marginTop: 4 },
+  characterActions: { alignItems: "center", gap: 4 },
   smallIconButton: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   newCharacterButton: {
     borderWidth: 1,
