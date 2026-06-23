@@ -68,14 +68,18 @@ function plainText(value, fallback = "") {
 }
 
 function extractOutputText(data) {
+  function clean(text) {
+    return text.replace(/^\s*(하림|assistant|AI)\s*[:：]\s*/i, "").trim();
+  }
+
   if (typeof data.output_text === "string" && data.output_text.trim()) {
-    return data.output_text.trim();
+    return clean(data.output_text);
   }
 
   for (const item of data.output || []) {
     for (const content of item.content || []) {
       if (typeof content.text === "string" && content.text.trim()) {
-        return content.text.trim();
+        return clean(content.text);
       }
     }
   }
