@@ -66,9 +66,29 @@ function formatHour(d: Date) {
 async function copyInviteLink() {
   const clipboard = (globalThis.navigator as any)?.clipboard;
   if (clipboard?.writeText) {
-    await clipboard.writeText(inviteUrl);
-    return true;
+    try {
+      await clipboard.writeText(inviteUrl);
+      return true;
+    } catch {
+      // HTTP deployments may block the modern Clipboard API.
+    }
   }
+
+  const documentRef = (globalThis as any).document;
+  if (documentRef?.body?.appendChild && documentRef?.execCommand) {
+    const textArea = documentRef.createElement("textarea");
+    textArea.value = inviteUrl;
+    textArea.setAttribute("readonly", "");
+    textArea.style.position = "fixed";
+    textArea.style.opacity = "0";
+    textArea.style.pointerEvents = "none";
+    documentRef.body.appendChild(textArea);
+    textArea.select();
+    const copied = documentRef.execCommand("copy");
+    documentRef.body.removeChild(textArea);
+    return copied;
+  }
+
   return false;
 }
 
@@ -194,9 +214,8 @@ export default function VideoLogScreen() {
     );
   };
 
-  const showInvitePanel = async () => {
-    const copied = await copyInviteLink();
-    setShareMessage(copied ? "링크가 복사되었습니다." : "아래 버튼으로 초대 링크를 공유해 주세요.");
+  const showInvitePanel = () => {
+    setShareMessage("초대 방법을 선택해 주세요.");
     setSharePanelOpen(true);
   };
 
@@ -277,9 +296,17 @@ export default function VideoLogScreen() {
               {logType === "shared" ? "함께 만드는 로그" : logType === "travel" ? "나의 여행 기록" : "오늘의 브이로그"}
             </Text>
           </View>
-          <Text style={[styles.collectionCount, { color: colors.mutedForeground }]}>
-            {logType === "shared" ? `${collections.length}개 모임` : "1개"}
-          </Text>
+          <View style={styles.sectionActions}>
+            <Text style={[styles.collectionCount, { color: colors.mutedForeground }]}>
+              {logType === "shared" ? `${collections.length}개 모임` : "1개"}
+            </Text>
+            {logType === "shared" && (
+              <Pressable onPress={showInvitePanel} style={[styles.addMemberButton, { backgroundColor: colors.foreground }]}>
+                <Ionicons name="person-add" size={14} color={colors.card} />
+                <Text style={[styles.addMemberText, { color: colors.card }]}>인원 추가</Text>
+              </Pressable>
+            )}
+          </View>
         </View>
 
         {collections.length > 0 ? (
@@ -345,17 +372,6 @@ export default function VideoLogScreen() {
               );
             })}
 
-            {logType === "shared" && (
-              <Pressable onPress={showInvitePanel} style={[styles.inviteCollectionCard, { width: cardWidth, borderColor: colors.border }]}>
-                <View style={[styles.inviteIcon, { backgroundColor: colors.muted }]}>
-                  <Ionicons name="person-add" size={24} color={colors.primary} />
-                </View>
-                <Text style={[styles.inviteCardTitle, { color: colors.foreground }]}>친구를 초대해 새 로그 만들기</Text>
-                <Text style={[styles.inviteCardDescription, { color: colors.mutedForeground }]}>
-                  초대한 친구나 모임마다 함께 찍는 로그가 하나씩 생겨요.
-                </Text>
-              </Pressable>
-            )}
           </ScrollView>
         ) : (
           <Pressable onPress={showInvitePanel} style={[styles.noCollectionCard, { borderColor: colors.border }]}>
@@ -517,7 +533,18 @@ const styles = StyleSheet.create({
   },
   sectionEyebrow: { fontFamily: "Inter_700Bold", fontSize: 11 },
   sectionTitle: { fontFamily: "NotoSansKR_700Bold", fontSize: 21, marginTop: 3 },
+  sectionActions: { alignItems: "flex-end", gap: 7 },
   collectionCount: { fontFamily: "NotoSansKR_400Regular", fontSize: 13, marginBottom: 2 },
+  addMemberButton: {
+    minHeight: 32,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+  },
+  addMemberText: { fontFamily: "NotoSansKR_700Bold", fontSize: 12 },
   collectionRail: { paddingHorizontal: 22, paddingBottom: 12, gap: 12 },
   collectionCard: {
     height: 176,
@@ -552,15 +579,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   openCircle: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
-  inviteCollectionCard: {
-    height: 176,
-    borderRadius: 8,
-    borderWidth: 1.5,
-    borderStyle: "dashed",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 28,
-  },
   noCollectionCard: {
     marginHorizontal: 22,
     minHeight: 212,
